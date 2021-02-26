@@ -1,0 +1,31 @@
+{% assign total_count = 0 %}
+{% for item in cart.items %}    
+    {% if item.varaint.option1 == '0' %}
+        {% assign option1 = 0 %}
+    {% elsif item.varaint.option1 == '1' %}
+        {% assign option1 = 1 %}
+    {% else%}
+        {% assign option1 = 2 %}
+    {% endif %}
+    {% if item.varaint.option2 == '0' %}
+        {% assign option2 = 0 %}
+    {% elsif item.varaint.option2 == '1' %}
+        {% assign option2 = 1 %}
+    {% else%}
+        {% assign option2 = 2 %}
+    {% endif %}
+    {% assign total_count = total_count | plus: option1 %}
+    {% assign total_count = total_count | plus: option2 %}
+{% endfor %}
+
+<div class="checkout-sticky-bar" {% if total_count == 0 %}style="display: none;"{% endif %}>
+    <div class="container">
+        <div class="eight column">
+            <span>CART TOTAL: <span class="cart-total">{{ cart.total_price | money }}</span></span>
+        </div>
+        <div class="eight column">
+            <span class="add-one" {% if total_count < 2  %}style="display: none;"{% endif %}>Add more to checkout!</span>            
+            <a href="{% if total_count < 2  %}javascript:;{% else %}/checkout{% endif %}" class="action_button to-checkout {% if total_count < 2  %}disabled{% endif %}">CONTINUE TO CHECKOUT</a>
+        </div>
+    </div>
+</div>

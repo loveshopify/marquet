@@ -1,0 +1,291 @@
+$(document).on('change', '.option-select', function(e){
+    const target = $(this);
+    const optionVal1 = target.closest('form').find('.option-select-1').val();
+    const optionVal2 = target.closest('form').find('.option-select-2').val();
+    var price = target.closest('form').find('.product-variant-info').data(optionVal1 + '-' + optionVal2 + '-price');
+    const id = target.closest('form').find('.product-variant-info').data(optionVal1 + '-' + optionVal2 + '-id');
+    if(price == "$0.00")
+        target.closest('form').parent().parent().find('.money').html(target.closest('form').parent().parent().find('.money').data('min-price'));
+    else {
+        target.closest('form').parent().parent().find('.money').html(price);
+    }
+    target.closest('form').find('input[name=id]').val(id);
+    if(target.hasClass('option-added-to-cart')) {
+        const option1 = target.closest('form').find('.option-select-1');
+        const option2 = target.closest('form').find('.option-select-2');
+        if(option1.data('in-cart') == option1.val() && option2.data('in-cart') == option2.val()) {
+            target.closest('form').find('.action_button.in-the-cart').show();
+            target.closest('form').find('.action_button.update-the-cart').hide();
+        } else {
+            target.closest('form').find('.action_button.in-the-cart').hide();
+            target.closest('form').find('.action_button.update-the-cart').show();
+        }
+        
+    }
+});
+
+function updateStickyCheckoutBar(res) {
+    if(res.items.length) {
+        $('.checkout-sticky-bar').show();
+    } else {
+        $('.checkout-sticky-bar').hide();
+    }
+    $('.checkout-sticky-bar .cart-total').html('$' + (parseInt(res.total_price) / 100));
+    totalMeals = 0;
+    var globalmealSelectors = $('.option-select');
+    for(var i = 0; i < globalmealSelectors.length; i ++) {
+        totalMeals += parseInt($(globalmealSelectors[i]).val());
+    }
+
+    var familyMeals = 0;
+    var familymealSelectors = $('#tab2 .option-select');
+    for(var i = 0; i < familymealSelectors.length; i ++) {
+        familyMeals += parseInt($(familymealSelectors[i]).val());
+    }   
+
+    if(familyMeals == 0) {
+        if(totalMeals >= 2) {
+            $('.checkout-sticky-bar .add-one').hide();
+            $('.checkout-sticky-bar .to-checkout').removeClass('disabled');
+        } else {
+            $('.checkout-sticky-bar .add-one').show();
+            $('.checkout-sticky-bar .to-checkout').addClass('disabled');
+        }
+    } else {
+        mondayMeals = 0;
+        var mondaySelectors = $('.option-select-1');
+        for(var i = 0; i < mondaySelectors.length; i ++) {
+            mondayMeals += parseInt($(mondaySelectors[i]).val());
+        }
+
+        wedMeals = 0;
+        var wedSelectors = $('.option-select-2');
+        for(var i = 0; i < wedSelectors.length; i ++) {
+            wedMeals += parseInt($(wedSelectors[i]).val());
+        }
+
+        if(mondayMeals >= 3 || wedSelectors >=3) {
+            $('.checkout-sticky-bar .add-one').hide();
+            $('.checkout-sticky-bar .to-checkout').removeClass('disabled');
+        } else {
+            $('.checkout-sticky-bar .add-one').show();
+            $('.checkout-sticky-bar .to-checkout').addClass('disabled');
+        }
+    }
+}
+
+$(document).on('click', '.action_button.add_to_cart', function(e){
+    e.preventDefault();
+    e.stopPropagation();
+    const form = $(this).closest('form');
+    var totalMeals = 0;
+    const mealSelectors = form.find('.option-select');
+    for(var i = 0; i < mealSelectors.length; i ++) {
+        totalMeals += parseInt($(mealSelectors[i]).val());
+    }
+
+    if(totalMeals == 0)
+        return;
+        
+
+    jQuery.post('/cart/add.js', $(this).closest('form').serialize());
+    setTimeout(function(){
+        $.ajax({
+          type: 'GET', 
+          url: '/cart.js',
+          dataType: 'json',
+          success: function(res){
+            form.find('.option-select').addClass('option-added-to-cart');
+            form.find('.option-select-1').attr('data-in-cart', form.find('.option-select-1').val());
+            form.find('.option-select-2').attr('data-in-cart', form.find('.option-select-2').val());
+            form.find('.action_button.add_to_cart').hide();
+            form.find('.action_button.in-the-cart').show();
+            form.find('.action_button.update-the-cart').hide();
+            form.find('.action_button.remove-from-cart').show();
+            updateStickyCheckoutBar(res);
+            
+          },
+          error: function(err){                          
+          }
+       });       
+    }, 500);
+
+});
+
+$(document).on('click', '.action_button.update-the-cart', function(e){
+    e.preventDefault();
+    const form = $(this).closest('form');
+    var totalMeals = 0;
+    const mealSelectors = form.find('.option-select');
+    for(var i = 0; i < mealSelectors.length; i ++) {
+        totalMeals += parseInt($(mealSelectors[i]).val());
+    }
+    if(totalMeals == 0)
+    {
+       form.find('.action_button.remove-from-cart').trigger('click');
+       return;
+    }
+    $.ajax({
+        type: 'GET', 
+        url: '/cart.js',
+        dataType: 'json',
+        success: function(res){
+            var qrys = [];
+            for(i in res.items) {                  
+                if(res.items[i].product_id == form.find('.product-id').val()) {
+                    qrys.push('0');
+                } else {
+                    qrys.push('1');
+                }
+                
+            }
+            jQuery.post('/cart/update.js', {updates: qrys});
+            setTimeout(function(){
+                jQuery.post('/cart/add.js', form.serialize());
+                setTimeout(function(){
+                    $.ajax({
+                    type: 'GET', 
+                    url: '/cart.js',
+                    dataType: 'json',
+                    success: function(res){
+                        form.find('.option-select').addClass('option-added-to-cart');
+                        form.find('.option-select-1').attr('data-in-cart', form.find('.option-select-1').val());
+                        form.find('.option-select-2').attr('data-in-cart', form.find('.option-select-2').val());
+                        form.find('.action_button.add_to_cart').hide();
+                        form.find('.action_button.in-the-cart').show();
+                        form.find('.action_button.update-the-cart').hide();
+                        form.find('.action_button.remove-from-cart').show();
+                        updateStickyCheckoutBar(res);
+                        
+                    },
+                    error: function(err){                          
+                    }
+                });       
+                }, 500);
+            
+            }, 500);
+            
+        },
+        error: function(err){                          
+        }
+    });
+});
+
+$(document).on('click', '.action_button.remove-from-cart', function(e){
+    e.preventDefault();
+    const form = $(this).closest('form');
+    $.ajax({
+        type: 'GET', 
+        url: '/cart.js',
+        dataType: 'json',
+        success: function(res){
+            var qrys = [];
+            for(i in res.items) {                  
+                if(res.items[i].product_id == form.find('.product-id').val()) {
+                    qrys.push('0');
+                } else {
+                    qrys.push('1');
+                }
+                
+            }
+            jQuery.post('/cart/update.js', {updates: qrys});
+            setTimeout(function(){
+                $.ajax({
+                type: 'GET', 
+                url: '/cart.js',
+                dataType: 'json',
+                success: function(res){                       
+                    
+                    form.find('.option-select').removeClass('option-added-to-cart');
+                    form.find('.action_button.add_to_cart').show();
+                    form.find('.action_button.in-the-cart').hide();
+                    form.find('.action_button.update-the-cart').hide();
+                    form.find('.action_button.remove-from-cart').hide();                        
+                    form.parent().parent().find('.money').html(form.parent().parent().find('.money').data('min-price'));
+                    form.find('.option-select').val('0');                        
+                    updateStickyCheckoutBar(res);                        
+                },
+                    error: function(err){                          
+                }
+
+            });
+            
+            }, 500);
+            
+        },
+        error: function(err){                          
+        }
+    });    
+});
+
+$(document).on('change', '.option-select-cart', function(e){
+    const target = $(this);
+    const parent = target.closest('.product-item-wrapper');
+    const removeBtn = parent.find('.product-minus.js-change-quantity');
+    const optionVal1 = parent.find('.option-select-cart-1').val();
+    const optionVal2 = parent.find('.option-select-cart-2').val();
+    const id = parent.find('.product-variant-info').data(optionVal1 + '-' + optionVal2 + '-id');
+    const property = parent.find('.meta .value').html();
+    console.log(optionVal1 + " " + optionVal2 + " " + id + " " + property);
+    if(optionVal1 == '0' && optionVal2 == '0') {
+        removeBtn.trigger('click');        
+    } else {
+        $.ajax({
+        type: 'GET', 
+        url: '/cart.js',
+        dataType: 'json',
+            success: function(res){
+                var qrys = [];
+                for(i in res.items) {                  
+                    if(res.items[i].product_id == parent.find('.product-id').val()) {
+                        qrys.push('0');
+                    } else {
+                        qrys.push('1');
+                    }
+                    
+                }
+                jQuery.post('/cart/update.js', {updates: qrys});
+                setTimeout(function(){
+                    jQuery.post('/cart/add.js', {
+                        quantity: 1,
+                        id: id,
+                        properties: {
+                            'Package Type': property
+                        }
+                    })
+                    .done(function(){
+                      document.location.href = document.location.href;
+                    })
+                    .fail(function(){
+                      document.location.href = document.location.href;                        
+                    })
+                }, 500);
+
+            },
+            error: function(err){                          
+            }
+        });
+        {% comment %}  {% endcomment %}
+
+    }
+    {% comment %}  {% endcomment %}
+    {% comment %} if(price == "$0.00")
+        target.closest('form').parent().parent().find('.money').html(target.closest('form').parent().parent().find('.money').data('min-price'));
+    else {
+        target.closest('form').parent().parent().find('.money').html(price);
+    }
+    target.closest('form').find('input[name=id]').val(id);
+    if(target.hasClass('option-added-to-cart')) {
+        const option1 = target.closest('form').find('.option-select-1');
+        const option2 = target.closest('form').find('.option-select-2');
+        if(option1.data('in-cart') == option1.val() && option2.data('in-cart') == option2.val()) {
+            target.closest('form').find('.action_button.in-the-cart').show();
+            target.closest('form').find('.action_button.update-the-cart').hide();
+        } else {
+            target.closest('form').find('.action_button.in-the-cart').hide();
+            target.closest('form').find('.action_button.update-the-cart').show();
+        }
+        
+    } {% endcomment %}
+});
+
